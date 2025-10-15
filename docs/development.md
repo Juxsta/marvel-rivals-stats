@@ -232,21 +232,148 @@ docker compose up -d --build app
 docker compose build --no-cache app
 ```
 
-### Working with Migrations
+### Database Migrations
+
+#### Migration File Naming Convention
+
+**CRITICAL**: Migration files MUST follow this naming pattern:
+```
+NNN_descriptive_name.sql
+```
+
+Where:
+- `NNN` is a zero-padded three-digit number (001, 002, 003, etc.)
+- `descriptive_name` describes what the migration does
+- Files are applied in **alphabetical order** (which equals numerical order with this convention)
+
+Examples:
+- ✅ `001_initial_schema.sql`
+- ✅ `002_add_synergy_stats.sql`
+- ✅ `010_add_indexes.sql`
+- ❌ `1_initial.sql` (not zero-padded)
+- ❌ `add_users.sql` (no number prefix)
+
+#### Why Alphabetical Ordering Matters
+
+The CI pipeline applies migrations using:
+```bash
+for migration in $(ls migrations/*.sql | sort); do
+  psql -f "$migration"
+done
+```
+
+This means:
+- Migrations are applied in **alphabetical order**
+- No database tracking table is used in CI
+- Incorrect ordering will cause schema inconsistencies
+- Always use zero-padded numbers to ensure correct sort order
+
+#### Creating a New Migration
+
+1. **Determine the next number**:
+   ```bash
+   ls migrations/ | sort | tail -1
+   # If last is 002_add_synergy_stats.sql, use 003
+   ```
+
+2. **Create the migration file**:
+   ```bash
+   nano migrations/003_add_user_profiles.sql
+   ```
+
+3. **Write idempotent SQL** (safe to run multiple times):
+   ```sql
+   -- Good: Uses IF NOT EXISTS
+   CREATE TABLE IF NOT EXISTS user_profiles (
+       id SERIAL PRIMARY KEY,
+       username VARCHAR(255) NOT NULL
+   );
+
+   -- Good: Checks existence before adding column
+   DO $$
+   BEGIN
+       IF NOT EXISTS (
+           SELECT 1 FROM information_schema.columns
+           WHERE table_name='users' AND column_name='email'
+       ) THEN
+           ALTER TABLE users ADD COLUMN email VARCHAR(255);
+       END IF;
+   END $$;
+   ```
+
+4. **Test locally**:
+   ```bash
+   # Apply migration
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals \
+       -f /docker-entrypoint-initdb.d/003_add_user_profiles.sql
+
+   # Verify schema
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals \
+       -c "\d user_profiles"
+   ```
+
+5. **Commit the migration**:
+   ```bash
+   git add migrations/003_add_user_profiles.sql
+   git commit -m "Add user profiles migration"
+   ```
+
+#### Best Practices for Migrations
+
+1. **Never modify existing migrations** after they've been merged
+   - Create a new migration to fix issues instead
+   - Existing migrations may have already run in production
+
+2. **Make migrations idempotent**
+   - Use `IF NOT EXISTS` for CREATE statements
+   - Use `IF EXISTS` for DROP statements
+   - Check for existence before ALTER TABLE operations
+
+3. **Test rollback scenarios**
+   - Ensure you can recover if migration fails
+   - Consider creating a separate rollback script for complex changes
+
+4. **Keep migrations focused**
+   - One logical change per migration file
+   - Easier to debug and rollback if needed
+
+5. **Document breaking changes**
+   - Add SQL comments explaining why the change is necessary
+   - Note any required data migrations or cleanup
+
+#### Applying Migrations Manually
 
 ```bash
-# Create new migration file
-nano migrations/003_new_feature.sql
+# Apply specific migration
+docker compose exec postgres psql -U marvel_stats -d marvel_rivals \
+    -f /docker-entrypoint-initdb.d/003_new_feature.sql
 
-# Apply migration manually
-docker compose exec app python scripts/run_migration.py migrations/003_new_feature.sql
+# Apply all pending migrations in order
+for migration in migrations/*.sql; do
+    echo "Applying: $migration"
+    docker compose exec postgres psql -U marvel_stats -d marvel_rivals \
+        -f /docker-entrypoint-initdb.d/$(basename $migration)
+done
 
-# Or apply via psql
-docker compose exec postgres psql -U marvel_stats -d marvel_rivals -f /docker-entrypoint-initdb.d/003_new_feature.sql
-
-# Check schema version
-docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT * FROM schema_migrations;"
+# Check schema version (if using schema_migrations table)
+docker compose exec postgres psql -U marvel_stats -d marvel_rivals \
+    -c "SELECT * FROM schema_migrations ORDER BY version;"
 ```
+
+#### Troubleshooting Migrations
+
+**Migration fails in CI but works locally**:
+- Check if migration is idempotent (safe to run multiple times)
+- Verify dependencies on previous migrations
+- Ensure no hard-coded data that may differ between environments
+
+**Migration order is wrong**:
+- Rename files to use correct zero-padded numbers
+- Run `ls migrations/ | sort` to verify alphabetical order matches intended order
+
+**Need to rollback a migration**:
+- Create a new migration that reverses the changes
+- Don't modify or delete the original migration file
 
 ### Seeding Test Data
 

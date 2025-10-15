@@ -20,6 +20,7 @@ from src.utils.statistics import (
     expected_wr_average,
     wilson_confidence_interval,
 )
+from src.utils.type_conversion import convert_numpy_types
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -33,26 +34,6 @@ TOP_N_SYNERGIES = 10
 # Sample size confidence thresholds
 SAMPLE_SIZE_HIGH_CONFIDENCE = 500
 SAMPLE_SIZE_MEDIUM_CONFIDENCE = 100
-
-
-def _convert_numpy_type(value: Any) -> Any:
-    """Convert numpy types to Python native types for database compatibility.
-
-    Args:
-        value: Value that may be a numpy type
-
-    Returns:
-        Python native type equivalent
-    """
-    if isinstance(value, np.integer):
-        return int(value)
-    elif isinstance(value, np.floating):
-        return float(value)
-    elif isinstance(value, np.ndarray):
-        return value.tolist()
-    elif isinstance(value, np.bool_):
-        return bool(value)
-    return value
 
 
 def calculate_synergy_score(actual_wr: float, expected_wr: float) -> float:
@@ -292,14 +273,14 @@ def cache_synergy_stats(
         hero_a, hero_b = hero_b, hero_a
 
     # Convert all numpy types to Python types for database compatibility
-    games_together = _convert_numpy_type(games_together)
-    wins_together = _convert_numpy_type(wins_together)
-    win_rate = _convert_numpy_type(win_rate)
-    expected_win_rate = _convert_numpy_type(expected_win_rate)
-    synergy_score = _convert_numpy_type(synergy_score)
-    confidence_lower = _convert_numpy_type(confidence_lower)
-    confidence_upper = _convert_numpy_type(confidence_upper)
-    p_value = _convert_numpy_type(p_value)
+    games_together = convert_numpy_types(games_together)
+    wins_together = convert_numpy_types(wins_together)
+    win_rate = convert_numpy_types(win_rate)
+    expected_win_rate = convert_numpy_types(expected_win_rate)
+    synergy_score = convert_numpy_types(synergy_score)
+    confidence_lower = convert_numpy_types(confidence_lower)
+    confidence_upper = convert_numpy_types(confidence_upper)
+    p_value = convert_numpy_types(p_value)
 
     with conn.cursor() as cursor:
         cursor.execute(

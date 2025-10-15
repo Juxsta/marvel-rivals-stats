@@ -1,5 +1,6 @@
 # Core dependencies for production
 requests>=2.31.0
 python-dotenv>=1.0.0
+numpy>=1.24.0  # Explicit dependency for type conversions (used by scipy and our code)
 scipy>=1.11.0
 psycopg2-binary>=2.9.9
