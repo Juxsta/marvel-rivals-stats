@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
 CURRENT_SEASON = 1
 
 
-def fetch_player_matches(api_client: MarvelRivalsClient, username: str, limit: int = 150) -> List[Dict]:
+def fetch_player_matches(
+    api_client: MarvelRivalsClient, username: str, limit: int = 150
+) -> List[Dict]:
     """Fetch match history for a single player from API.
 
     Args:
@@ -286,7 +288,10 @@ def update_collection_metadata(conn: PgConnection, stats: Dict) -> None:
 
 
 def collect_matches(
-    api_client: MarvelRivalsClient, db_conn: PgConnection, batch_size: int = 100, rate_limit_delay: float = 8.6
+    api_client: MarvelRivalsClient,
+    db_conn: PgConnection,
+    batch_size: int = 100,
+    rate_limit_delay: float = 8.6,
 ) -> Dict:
     """Collect match histories for pending players with rate limiting.
 
