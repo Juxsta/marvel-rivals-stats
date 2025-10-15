@@ -157,12 +157,12 @@ def clean_test_data():
                 """
                 )
             conn.commit()
-        except:
+        except Exception:
             pass
     finally:
         try:
             conn.close()
-        except:
+        except Exception:
             pass
 
 
@@ -307,7 +307,8 @@ def test_resumable_collection_after_interruption(clean_test_data):
     # Insert 3 players
     with conn.cursor() as cur:
         cur.executemany(
-            "INSERT INTO players (username, rank_tier, rank_score, match_history_fetched) VALUES (%s, %s, %s, %s)",
+            "INSERT INTO players (username, rank_tier, rank_score, match_history_fetched) "
+            "VALUES (%s, %s, %s, %s)",
             [
                 ("resume_player1", "Gold", 1500, False),
                 ("resume_player2", "Gold", 1500, False),
@@ -333,7 +334,8 @@ def test_resumable_collection_after_interruption(clean_test_data):
     # Verify all players now collected
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT COUNT(*) FROM players WHERE username LIKE 'resume_player%' AND match_history_fetched = TRUE"
+            "SELECT COUNT(*) FROM players "
+            "WHERE username LIKE 'resume_player%' AND match_history_fetched = TRUE"
         )
         count = cur.fetchone()[0]
         assert count == 3, "All 3 players should be marked as collected"
@@ -357,7 +359,8 @@ def test_confidence_interval_calculations_end_to_end(clean_test_data):
         # Insert 100 matches
         for i in range(100):
             cur.execute(
-                "INSERT INTO matches (match_id, mode, season, match_timestamp) VALUES (%s, %s, %s, %s)",
+                "INSERT INTO matches (match_id, mode, season, match_timestamp) "
+                "VALUES (%s, %s, %s, %s)",
                 (f"ci_match_{i}", "competitive", 1, "2025-10-15T10:00:00Z"),
             )
 
@@ -417,7 +420,8 @@ def test_minimum_sample_size_filtering(clean_test_data):
 
         for i in range(5):
             cur.execute(
-                "INSERT INTO matches (match_id, mode, season, match_timestamp) VALUES (%s, %s, %s, %s)",
+                "INSERT INTO matches (match_id, mode, season, match_timestamp) "
+                "VALUES (%s, %s, %s, %s)",
                 (f"filter_match_{i}", "competitive", 1, "2025-10-15T10:00:00Z"),
             )
 
@@ -463,7 +467,8 @@ def test_json_export_format_validity(clean_test_data):
 
         for i in range(10):
             cur.execute(
-                "INSERT INTO matches (match_id, mode, season, match_timestamp) VALUES (%s, %s, %s, %s)",
+                "INSERT INTO matches (match_id, mode, season, match_timestamp) "
+                "VALUES (%s, %s, %s, %s)",
                 (f"export_match_{i}", "competitive", 1, "2025-10-15T10:00:00Z"),
             )
 
@@ -522,7 +527,8 @@ def test_rate_limiter_prevents_burst_requests(clean_test_data):
     # Insert 3 players
     with conn.cursor() as cur:
         cur.executemany(
-            "INSERT INTO players (username, rank_tier, rank_score, match_history_fetched) VALUES (%s, %s, %s, %s)",
+            "INSERT INTO players (username, rank_tier, rank_score, match_history_fetched) "
+            "VALUES (%s, %s, %s, %s)",
             [
                 ("rate_player1", "Gold", 1500, False),
                 ("rate_player2", "Gold", 1500, False),

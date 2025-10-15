@@ -46,10 +46,12 @@ def synergy_test_data():
         with conn.cursor() as cur:
             # Clean existing test data
             cur.execute(
-                "DELETE FROM character_stats WHERE hero_name IN ('Test Hero A', 'Test Hero B', 'Test Hero C')"
+                "DELETE FROM character_stats WHERE hero_name IN "
+                "('Test Hero A', 'Test Hero B', 'Test Hero C')"
             )
             cur.execute(
-                "DELETE FROM synergy_stats WHERE hero_a LIKE 'Test Hero%' OR hero_b LIKE 'Test Hero%'"
+                "DELETE FROM synergy_stats WHERE hero_a LIKE 'Test Hero%' "
+                "OR hero_b LIKE 'Test Hero%'"
             )
             cur.execute("DELETE FROM match_participants WHERE match_id LIKE 'syn_test_%'")
             cur.execute("DELETE FROM matches WHERE match_id LIKE 'syn_test_%'")
@@ -88,7 +90,8 @@ def synergy_test_data():
             for i in range(100):
                 match_id = f"syn_test_ab_{i}"
                 cur.execute(
-                    "INSERT INTO matches (match_id, mode, season, match_timestamp) VALUES (%s, %s, %s, %s)",
+                    "INSERT INTO matches (match_id, mode, season, match_timestamp) "
+                    "VALUES (%s, %s, %s, %s)",
                     (match_id, "competitive", 1, datetime.now()),
                 )
 
@@ -117,7 +120,8 @@ def synergy_test_data():
             for i in range(50):
                 match_id = f"syn_test_ac_{i}"
                 cur.execute(
-                    "INSERT INTO matches (match_id, mode, season, match_timestamp) VALUES (%s, %s, %s, %s)",
+                    "INSERT INTO matches (match_id, mode, season, match_timestamp) "
+                    "VALUES (%s, %s, %s, %s)",
                     (match_id, "competitive", 1, datetime.now()),
                 )
 
@@ -144,21 +148,23 @@ def synergy_test_data():
             conn.rollback()
             with conn.cursor() as cur:
                 cur.execute(
-                    "DELETE FROM character_stats WHERE hero_name IN ('Test Hero A', 'Test Hero B', 'Test Hero C')"
+                    "DELETE FROM character_stats WHERE hero_name IN "
+                    "('Test Hero A', 'Test Hero B', 'Test Hero C')"
                 )
                 cur.execute(
-                    "DELETE FROM synergy_stats WHERE hero_a LIKE 'Test Hero%' OR hero_b LIKE 'Test Hero%'"
+                    "DELETE FROM synergy_stats WHERE hero_a LIKE 'Test Hero%' "
+                    "OR hero_b LIKE 'Test Hero%'"
                 )
                 cur.execute("DELETE FROM match_participants WHERE match_id LIKE 'syn_test_%'")
                 cur.execute("DELETE FROM matches WHERE match_id LIKE 'syn_test_%'")
                 cur.execute("DELETE FROM players WHERE username LIKE 'syn_player_%'")
             conn.commit()
-        except:
+        except Exception:
             pass
     finally:
         try:
             conn.close()
-        except:
+        except Exception:
             pass
 
 
@@ -411,7 +417,7 @@ def test_database_integration_with_new_schema(synergy_test_data):
     conn = synergy_test_data
 
     # Run analysis to populate database
-    results = analyze_teammate_synergies(conn, min_games_together=50)
+    analyze_teammate_synergies(conn, min_games_together=50)
 
     # Verify synergy_stats table has new columns
     with conn.cursor() as cur:

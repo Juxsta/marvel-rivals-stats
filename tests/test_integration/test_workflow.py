@@ -29,7 +29,10 @@ def seed_test_data():
             cur.execute(
                 """
                 DELETE FROM players
-                WHERE username IN ('SpiderGamer2024', 'IronDefender', 'StrangeSupport', 'ThorMain', 'BlackWidowSniper')
+                WHERE username IN (
+                    'SpiderGamer2024', 'IronDefender', 'StrangeSupport',
+                    'ThorMain', 'BlackWidowSniper'
+                )
             """
             )
 
@@ -45,7 +48,9 @@ def seed_test_data():
             for username, rank_tier, rank_score in players:
                 cur.execute(
                     """
-                    INSERT INTO players (username, rank_tier, rank_score, discovered_at, match_history_fetched)
+                    INSERT INTO players (
+                        username, rank_tier, rank_score, discovered_at, match_history_fetched
+                    )
                     VALUES (%s, %s, %s, %s, %s)
                 """,
                     (username, rank_tier, rank_score, datetime.now(), False),
@@ -262,8 +267,10 @@ def seed_test_data():
             for participant_data in participants:
                 cur.execute(
                     """
-                    INSERT INTO match_participants
-                    (match_id, username, hero_id, hero_name, role, team, won, kills, deaths, assists, damage, healing)
+                    INSERT INTO match_participants (
+                        match_id, username, hero_id, hero_name, role, team,
+                        won, kills, deaths, assists, damage, healing
+                    )
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                     participant_data,
@@ -281,11 +288,14 @@ def seed_test_data():
                 cur.execute(
                     """
                     DELETE FROM players
-                    WHERE username IN ('SpiderGamer2024', 'IronDefender', 'StrangeSupport', 'ThorMain', 'BlackWidowSniper')
+                    WHERE username IN (
+                        'SpiderGamer2024', 'IronDefender', 'StrangeSupport',
+                        'ThorMain', 'BlackWidowSniper'
+                    )
                 """
                 )
             conn.commit()
-        except:
+        except Exception:
             pass
 
     finally:
@@ -322,7 +332,8 @@ def test_database_to_seed_data_workflow(seed_test_data):
 
         # Verify we have seed data in players table
         cur.execute(
-            "SELECT COUNT(*) FROM players WHERE username LIKE 'SpiderGamer%' OR username LIKE 'IronDefender%'"
+            "SELECT COUNT(*) FROM players "
+            "WHERE username LIKE 'SpiderGamer%' OR username LIKE 'IronDefender%'"
         )
         player_count = cur.fetchone()[0]
         assert player_count > 0, "Should have sample players from seed data"

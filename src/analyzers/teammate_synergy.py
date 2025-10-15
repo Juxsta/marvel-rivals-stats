@@ -8,9 +8,8 @@ import json
 import logging
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
-import numpy as np
 from psycopg2.extensions import connection as PgConnection
 
 from src.utils.statistics import (

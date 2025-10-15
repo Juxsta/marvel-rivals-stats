@@ -8,6 +8,7 @@ Usage: python run_migration.py <migration_file.sql>
 import os
 import sys
 from pathlib import Path
+
 import psycopg2
 from dotenv import load_dotenv
 
@@ -41,7 +42,7 @@ def run_migration(migration_file: str) -> None:
 
     try:
         # Read migration SQL
-        with open(migration_path, 'r') as f:
+        with open(migration_path, "r") as f:
             sql = f.read()
 
         # Execute migration
