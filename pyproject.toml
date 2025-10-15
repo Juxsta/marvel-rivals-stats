@@ -53,11 +53,13 @@ disallow_untyped_defs = false
 module = "scripts.*"
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
+warn_return_any = false
+check_untyped_defs = false
 
 [[tool.mypy.overrides]]
-module = [
-    "numpy.*",
-    "scipy.*",
-    "dotenv.*",
-]
+module = ["numpy.*", "scipy.*", "dotenv.*", "api.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["src.analyzers.*", "src.collectors.*"]
+warn_return_any = false

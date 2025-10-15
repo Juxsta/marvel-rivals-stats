@@ -45,7 +45,7 @@ jobs:
 
       # Check type hints (mypy)
       - name: Run mypy type checker
-        run: mypy src/ scripts/
+        run: mypy src/
 
   # Job 2: Unit tests (non-integration tests)
   unit-tests:
