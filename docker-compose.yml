@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: marvel-rivals-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME:-marvel_rivals}
+      POSTGRES_USER: ${DATABASE_USER:-marvel_stats}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?Database password required}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      # Production: Use Odin server path
+      # Development: Use local ./data/postgres
+      - ${DATA_DIR:-./data}/postgres:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    networks:
+      - marvel-rivals-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-marvel_stats}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PYTHON_VERSION: ${PYTHON_VERSION:-3.10}
+    container_name: marvel-rivals-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database connection
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${DATABASE_NAME:-marvel_rivals}
+      DATABASE_USER: ${DATABASE_USER:-marvel_stats}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DATABASE_URL: postgresql://${DATABASE_USER:-marvel_stats}:${DATABASE_PASSWORD}@postgres:5432/${DATABASE_NAME:-marvel_rivals}
+
+      # Application config
+      MARVEL_RIVALS_API_KEY: ${MARVEL_RIVALS_API_KEY}
+      RATE_LIMIT_REQUESTS_PER_MINUTE: ${RATE_LIMIT_REQUESTS_PER_MINUTE:-7}
+      CURRENT_SEASON: ${CURRENT_SEASON:-9}
+      APP_ENV: ${APP_ENV:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # Python environment
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+    volumes:
+      # Mount source code for hot-reload during development
+      - ./src:/app/src:ro
+      - ./scripts:/app/scripts:ro
+      - ./config:/app/config:ro
+      - ./migrations:/app/migrations:ro
+      - ./tests:/app/tests:ro
+
+      # Mount output directories (read-write)
+      - ${DATA_DIR:-./data}/output:/app/output
+      - ${DATA_DIR:-./data}/logs:/app/logs
+    networks:
+      - marvel-rivals-net
+    # Keep container running for interactive use
+    command: tail -f /dev/null
+    # Alternative: Run a specific script
+    # command: python scripts/collect_matches.py
+
+networks:
+  marvel-rivals-net:
+    name: marvel-rivals-network
+    driver: bridge
+    # For Odin server, connect to existing Caddy network:
+    # external: true
+    # name: caddy
+
+volumes:
+  postgres-data:
+    driver: local

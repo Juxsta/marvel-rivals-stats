@@ -1,0 +1,40 @@
+task_assignments:
+  - task_group: "Task Group 1: GitHub Repository Initialization"
+    assigned_subagent: "unassigned"
+    rationale: "Infrastructure task not covered by specialist roles"
+
+  - task_group: "Task Group 2: Project Scaffolding"
+    assigned_subagent: "unassigned"
+    rationale: "Infrastructure task - directory creation and config files"
+
+  - task_group: "Task Group 3: Docker Compose Setup"
+    assigned_subagent: "unassigned"
+    rationale: "Infrastructure/DevOps task not covered by specialist roles"
+
+  - task_group: "Task Group 4: Database Setup"
+    assigned_subagent: "database-engineer"
+    rationale: "Database schema, migrations, and connection module"
+
+  - task_group: "Task Group 5: Database Scripts"
+    assigned_subagent: "database-engineer"
+    rationale: "Database initialization, migration runner, and seed data scripts"
+
+  - task_group: "Task Group 6: API Integration Setup"
+    assigned_subagent: "api-engineer"
+    rationale: "API client, rate limiter, and test script implementation"
+
+  - task_group: "Task Group 7: Integration Testing"
+    assigned_subagent: "testing-engineer"
+    rationale: "Test writing and validation across all components"
+
+  - task_group: "Task Group 8: Final Documentation"
+    assigned_subagent: "unassigned"
+    rationale: "Documentation task not covered by specialist roles"
+
+  - task_group: "Task Group 9: Version Control Finalization"
+    assigned_subagent: "unassigned"
+    rationale: "Git operations - infrastructure task"
+
+  - task_group: "Task Group 10: Production Deployment"
+    assigned_subagent: "unassigned"
+    rationale: "Deployment task - optional, can be done later"
