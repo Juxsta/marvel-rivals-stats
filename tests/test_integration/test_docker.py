@@ -64,7 +64,10 @@ def test_psql_commands_executable():
 
 @pytest.mark.skipif(
     "DATABASE_URL" in os.environ and "marvel_rivals_test" in os.environ.get("DATABASE_URL", ""),
-    reason="Test requires Docker environment with individual DATABASE_* env vars (not applicable in CI)",
+    reason=(
+        "Test requires Docker environment with individual DATABASE_* env vars "
+        "(not applicable in CI)"
+    ),
 )
 def test_environment_variables_loaded():
     """Test that environment variables are loaded correctly in the Docker container.
