@@ -5,8 +5,6 @@ and can communicate with each other.
 """
 
 import os
-import pytest
-import subprocess
 
 
 def test_postgres_reachable_from_app():
@@ -37,10 +35,12 @@ def test_psql_commands_executable():
     try:
         with conn.cursor() as cur:
             # Test that we can list tables (equivalent to \dt in psql)
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = 'public'
-            """)
+            """
+            )
             table_count = cur.fetchone()[0]
             assert table_count >= 7, "Should have at least 7 tables in public schema"
 

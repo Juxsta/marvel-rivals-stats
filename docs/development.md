@@ -392,6 +392,169 @@ alias dcdb='docker compose exec postgres psql -U marvel_stats -d marvel_rivals'
 # dcdb -c "SELECT COUNT(*) FROM players;"
 ```
 
+## Running the Data Collection Pipeline
+
+### Complete Pipeline (All Steps)
+
+```bash
+# Step 1: Discover players (stratified sampling)
+docker compose exec app python scripts/discover_players.py --target-count 500
+
+# Step 2: Collect match histories (rate limited, ~70 minutes for 100 players)
+docker compose exec app python scripts/collect_matches.py --batch-size 100
+
+# Step 3: Analyze character win rates
+docker compose exec app python scripts/analyze_characters.py
+
+# Step 4: Analyze teammate synergies
+docker compose exec app python scripts/analyze_synergies.py
+```
+
+### Development/Testing with Small Datasets
+
+```bash
+# Discover just 50 players for testing
+docker compose exec app python scripts/discover_players.py --target-count 50
+
+# Collect matches for 10 players only
+docker compose exec app python scripts/collect_matches.py --batch-size 10
+
+# Analyze with lower thresholds
+docker compose exec app python scripts/analyze_characters.py --min-games-overall 20
+docker compose exec app python scripts/analyze_synergies.py --min-games 10
+```
+
+### Dry Run Mode (Preview Without Changes)
+
+All scripts support `--dry-run` to preview without database changes:
+
+```bash
+docker compose exec app python scripts/discover_players.py --dry-run
+docker compose exec app python scripts/collect_matches.py --dry-run --batch-size 5
+```
+
+### Resuming Interrupted Collection
+
+Match collection is resumable - it tracks which players have been processed:
+
+```bash
+# Start collection
+docker compose exec app python scripts/collect_matches.py --batch-size 100
+
+# Press Ctrl+C to stop (partial progress is saved)
+
+# Resume later - picks up where it left off
+docker compose exec app python scripts/collect_matches.py --batch-size 100
+```
+
+### Inspecting Output
+
+```bash
+# View JSON exports
+cat output/character_win_rates.json | jq '."Spider-Man"'
+cat output/synergies.json | jq '."Spider-Man".synergies[0:3]'
+
+# Query database directly
+dcdb -c "SELECT hero_name, win_rate, total_games FROM character_stats WHERE rank_tier IS NULL ORDER BY win_rate DESC LIMIT 10;"
+dcdb -c "SELECT COUNT(*) FROM matches;"
+dcdb -c "SELECT COUNT(*) FROM match_participants;"
+```
+
+### Common Development Workflows
+
+**Add new hero analysis**:
+1. Ensure matches collected: `dcdb -c "SELECT COUNT(*) FROM matches;"`
+2. Run character analysis: `docker compose exec app python scripts/analyze_characters.py`
+3. Check output: `cat output/character_win_rates.json | jq keys`
+
+**Update synergy calculations**:
+1. Modify `src/analyzers/teammate_synergy.py`
+2. Run tests: `docker compose exec app pytest tests/test_analyzers/test_teammate_synergy.py -v`
+3. Re-run analysis: `docker compose exec app python scripts/analyze_synergies.py`
+
+**Debug data collection issues**:
+1. Check logs: `docker compose logs -f app`
+2. Inspect database: `dcdb -c "SELECT * FROM collection_metadata;"`
+3. View API rate limit status: Check logs for "Rate limit" warnings
+
+## Continuous Integration Pipeline
+
+### Overview
+
+The project uses GitHub Actions for automated testing on every push and pull request.
+
+### Workflow Structure
+
+The CI workflow (`.github/workflows/ci.yml`) consists of three parallel jobs:
+
+1. **lint**: Code quality checks
+   - black --check (code formatting)
+   - ruff check (linting)
+   - mypy (type checking)
+
+2. **unit-tests**: Business logic tests
+   - Runs ~42 unit tests
+   - Tests: statistics, analyzers, collectors, utilities
+   - Fast execution (~30 seconds)
+
+3. **integration-tests**: End-to-end tests
+   - Runs ~17 integration tests
+   - Uses PostgreSQL service container
+   - Runs database migrations automatically
+   - Tests: pipeline, workflow, synergy analysis
+   - Execution time: ~2 minutes
+
+### Service Containers
+
+Integration tests use a PostgreSQL 16 service container:
+- Database: `marvel_rivals_test`
+- User: `marvel_stats`
+- Password: `test_password`
+- Health checks ensure database is ready before tests run
+- Migrations run automatically before tests
+
+### Local Testing
+
+To test locally before pushing:
+
+```bash
+# Run all checks that CI will run
+docker compose exec app black --check src/ scripts/ tests/
+docker compose exec app ruff check src/ scripts/ tests/
+docker compose exec app mypy src/ scripts/
+docker compose exec app pytest tests/ -v
+```
+
+### Debugging CI Failures
+
+1. **View logs**: Go to GitHub Actions tab → Click failing workflow → Click failing job
+2. **Reproduce locally**: Use the same commands that CI runs
+3. **Test locally with act** (optional):
+   ```bash
+   # Install act tool
+   brew install act  # macOS
+
+   # Test workflow locally
+   act push
+   ```
+
+### Execution Time
+
+Target: Under 5 minutes total
+- Lint job: ~30 seconds
+- Unit tests job: ~30 seconds
+- Integration tests job: ~2 minutes
+- Total (parallel): ~2-3 minutes
+
+### Status Checks
+
+All PRs show status checks:
+- Green checkmark: All checks passed
+- Red X: One or more checks failed
+- Yellow dot: Checks in progress
+
+PRs cannot be merged until all checks pass.
+
 ## Next Steps
 
 - Review [Deployment Guide](deployment.md) for production deployment

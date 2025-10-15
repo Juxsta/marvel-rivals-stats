@@ -613,7 +613,116 @@ ImportError: No module named 'src'
    # Should list all package __init__.py files
    ```
 
+### Fixture Isolation Issues
+
+**Symptom**: Tests fail with "duplicate key value violates unique constraint"
+
+**Cause**: Test data not properly cleaned between tests
+
+**Solution**:
+1. Check `clean_test_data` fixture includes all test data patterns
+2. Ensure fixture uses proper cleanup patterns (LIKE '%test%', etc.)
+3. Run tests individually to identify which test leaves data behind
+4. Use unique IDs per test invocation
+
+### Numpy Serialization Errors
+
+**Symptom**: `psycopg2.errors.InvalidSchemaName: schema "np" does not exist`
+
+**Cause**: Numpy types (numpy.float64, numpy.int64) being passed to PostgreSQL
+
+**Solution**:
+1. Use type conversion utilities from `tests/test_utils/type_conversion.py`
+2. Convert numpy types before database INSERT:
+   ```python
+   from tests.test_utils.type_conversion import convert_numpy_types
+   value = convert_numpy_types(some_numpy_value)
+   ```
+3. Check that statistical functions return Python types, not numpy types
+
+### Database Connection Issues
+
+**Symptom**: `psycopg2.OperationalError: could not connect to server`
+
+**Cause**: PostgreSQL container not running or DATABASE_URL not set
+
+**Solution**:
+1. Ensure containers are running: `docker compose ps`
+2. Start containers if needed: `docker compose up -d`
+3. Check DATABASE_URL: `echo $DATABASE_URL`
+4. Verify PostgreSQL health: `docker compose exec postgres pg_isready`
+
+### Migration Failures
+
+**Symptom**: Tests fail with "relation does not exist" errors
+
+**Cause**: Database migrations not applied
+
+**Solution**:
+1. Run migrations: `docker compose exec app python scripts/init_db.py`
+2. Check migration status:
+   ```sql
+   SELECT * FROM schema_migrations ORDER BY version;
+   ```
+3. Verify all tables exist:
+   ```sql
+   \dt
+   ```
+
 ---
+
+## CI Failures
+
+### How to Read GitHub Actions Logs
+
+1. Go to repository → **Actions** tab
+2. Click on the failing workflow run
+3. Click on the failing job (lint, unit-tests, or integration-tests)
+4. Expand the failing step to see error output
+5. Look for:
+   - Test failures: `FAILED tests/...`
+   - Linting errors: `src/file.py:line:col: error message`
+   - Type errors: `src/file.py:line: error: ...`
+
+### Common CI-Specific Issues
+
+**Symptom**: Tests pass locally but fail in CI
+
+**Possible Causes**:
+1. **Environment differences**: CI uses fresh database each run
+2. **Timing issues**: CI may be slower, exposing race conditions
+3. **Missing environment variables**: Check workflow YAML for required vars
+4. **File path differences**: CI runs in `/github/workspace/`, not your local path
+
+**Solutions**:
+1. Review CI logs for specific error messages
+2. Ensure tests don't depend on local data or state
+3. Check that all required environment variables are set in workflow
+4. Use relative imports and paths
+
+### Testing Workflow Locally with `act`
+
+To test the GitHub Actions workflow on your machine:
+
+```bash
+# Install act
+brew install act  # macOS
+curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash  # Linux
+
+# Test lint job
+act -j lint
+
+# Test unit tests job
+act -j unit-tests
+
+# Test integration tests job (may require adjustments)
+act -j integration-tests
+
+# Run full workflow
+act push
+```
+
+**Note**: `act` doesn't perfectly replicate GitHub Actions, especially for service containers. Use it for quick validation, but final verification should be on GitHub.
 
 ## Migration Issues
 
@@ -776,3 +885,467 @@ docker system df
 docker system prune
 docker volume prune
 ```
+## Data Collection Pipeline Issues
+
+### Player Discovery Returns No Results
+
+**Problem**:  runs but finds 0 players.
+
+**Symptoms**:
+```
+Total players fetched from API: 0
+New players added to database: 0
+```
+
+**Solutions**:
+
+1. **Check API key configuration**:
+   ```bash
+   docker compose exec app python -c "import os; from dotenv import load_dotenv; load_dotenv(); print(os.getenv('MARVEL_RIVALS_API_KEY'))"
+   # Should print your API key, not None
+   ```
+
+2. **Test API connectivity**:
+   ```bash
+   docker compose exec app python scripts/test_api.py
+   ```
+
+3. **Check API response format** - API structure may have changed:
+   - Review logs: `docker compose logs app | grep -i 'api'`
+   - Update `src/api/client.py` if needed
+
+4. **Verify database connection**:
+   ```bash
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT COUNT(*) FROM players;"
+   ```
+
+---
+
+### Match Collection Stuck at 0 Matches
+
+**Problem**: Collection runs but no matches are inserted.
+
+**Symptoms**:
+```
+Players processed: 10
+Matches collected: 0 (new)
+Matches skipped: 0 (duplicates)
+```
+
+**Solutions**:
+
+1. **Check players have been discovered**:
+   ```bash
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT COUNT(*) FROM players WHERE match_history_fetched = FALSE;"
+   # Should show pending players
+   ```
+
+2. **Check match filtering** - Matches may be filtered out:
+   ```bash
+   # Check current season setting
+   grep CURRENT_SEASON .env
+   # Verify matches are competitive mode
+   ```
+
+3. **Review API responses** in logs:
+   ```bash
+   docker compose logs app | grep -A 5 'get_player_matches'
+   ```
+
+4. **Try with --dry-run** to see what would be collected:
+   ```bash
+   docker compose exec app python scripts/collect_matches.py --dry-run --batch-size 5
+   ```
+
+---
+
+### Rate Limit Errors (429)
+
+**Problem**: API returns "Rate limit exceeded" errors.
+
+**Symptoms**:
+```
+API Error: 429 - Rate limit exceeded
+```
+
+**Solutions**:
+
+1. **Verify rate limit delay** in collection:
+   ```bash
+   # Should be 8.6 seconds (7 requests/minute)
+   docker compose exec app python scripts/collect_matches.py --rate-limit-delay 8.6
+   ```
+
+2. **Check if previous run is still executing**:
+   ```bash
+   docker compose exec app ps aux | grep python
+   # Kill if duplicate processes found
+   ```
+
+3. **Wait for rate limit reset** (check API response):
+   - Free tier: Resets every minute
+   - Daily limit: Resets at midnight UTC
+
+4. **Reduce batch size** to spread requests over longer period:
+   ```bash
+   docker compose exec app python scripts/collect_matches.py --batch-size 50
+   ```
+
+---
+
+### Character Analysis Shows No Heroes
+
+**Problem**: Analysis completes but no heroes in output.
+
+**Symptoms**:
+```
+No heroes met minimum sample size requirements
+```
+
+**Solutions**:
+
+1. **Check match data exists**:
+   ```bash
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT COUNT(*) FROM matches;"
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT COUNT(*) FROM match_participants;"
+   # Should show >0 for both
+   ```
+
+2. **Lower minimum thresholds** for testing:
+   ```bash
+   docker compose exec app python scripts/analyze_characters.py --min-games-overall 10
+   ```
+
+3. **Check hero distribution**:
+   ```bash
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT hero_name, COUNT(*) FROM match_participants GROUP BY hero_name ORDER BY COUNT(*) DESC LIMIT 10;"
+   ```
+
+4. **Verify player rank data**:
+   ```bash
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT COUNT(*) FROM players WHERE rank_tier IS NOT NULL;"
+   # Should be >0
+   ```
+
+---
+
+### JSON Export File Not Created
+
+**Problem**: Analysis runs but no JSON file appears.
+
+**Symptoms**:
+```
+Analysis complete\!
+# But output/character_win_rates.json doesn't exist
+```
+
+**Solutions**:
+
+1. **Check if --no-export flag was used**:
+   ```bash
+   # Run without --no-export
+   docker compose exec app python scripts/analyze_characters.py
+   ```
+
+2. **Verify output directory exists and is writable**:
+   ```bash
+   ls -la output/
+   # Should show directory exists
+   # Create if missing:
+   mkdir -p output
+   ```
+
+3. **Check Docker volume mounts**:
+   ```bash
+   docker compose exec app ls -la /app/output/
+   # Verify directory exists in container
+   ```
+
+4. **Review logs for write errors**:
+   ```bash
+   docker compose logs app | grep -i 'export\|error'
+   ```
+
+---
+
+### Synergy Analysis Runs Forever
+
+**Problem**: Synergy analysis takes >30 minutes or never completes.
+
+**Symptoms**:
+- Script running for very long time
+- High CPU usage
+
+**Solutions**:
+
+1. **Check dataset size** - Synergy is O(N×M×K) where N=heroes, M=matches, K=teammates:
+   ```bash
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT COUNT(DISTINCT hero_name) FROM match_participants;"
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT COUNT(*) FROM matches;"
+   # Large counts (>1000 heroes or >100k matches) = long runtime
+   ```
+
+2. **Increase minimum games threshold** to reduce processing:
+   ```bash
+   docker compose exec app python scripts/analyze_synergies.py --min-games 100
+   ```
+
+3. **Monitor progress** - Check logs for progress updates:
+   ```bash
+   docker compose logs -f app | grep 'Analyzing'
+   ```
+
+4. **Run with smaller sample** first:
+   - Delete some data: `DELETE FROM matches WHERE match_id IN (SELECT match_id FROM matches LIMIT 5000);`
+   - Or test with just a few heroes
+
+---
+
+### Duplicate Match IDs Error
+
+**Problem**: Database constraint violation on match_id.
+
+**Symptoms**:
+```
+psycopg2.errors.UniqueViolation: duplicate key value violates unique constraint "matches_pkey"
+```
+
+**Solutions**:
+
+1. **This should not happen** - collection has deduplication logic. If it does:
+   ```bash
+   # Check for duplicates
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT match_id, COUNT(*) FROM matches GROUP BY match_id HAVING COUNT(*) > 1;"
+   ```
+
+2. **Fix duplicates manually**:
+   ```sql
+   DELETE FROM match_participants WHERE match_id IN (
+     SELECT match_id FROM (
+       SELECT match_id, ROW_NUMBER() OVER(PARTITION BY match_id) as rn
+       FROM matches
+     ) t WHERE rn > 1
+   );
+   DELETE FROM matches WHERE ctid NOT IN (
+     SELECT MIN(ctid) FROM matches GROUP BY match_id
+   );
+   ```
+
+3. **Report bug** - This indicates a logic error in collection code
+
+---
+
+### Foreign Key Violation Errors
+
+**Problem**: Cannot insert match_participants due to missing match or player.
+
+**Symptoms**:
+```
+psycopg2.errors.ForeignKeyViolation: insert or update on table "match_participants" violates foreign key constraint
+```
+
+**Solutions**:
+
+1. **Check insertion order** - Matches must exist before participants:
+   - Review `src/collectors/match_collector.py` insert logic
+   - Ensure `insert_match()` is called before `insert_match_participants()`
+
+2. **Verify player exists**:
+   ```bash
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT username FROM players LIMIT 10;"
+   ```
+
+3. **Check for transaction rollbacks**:
+   - If match insert fails, participants shouldn't be inserted
+   - Review error handling in collection code
+
+---
+
+## Performance Issues
+
+### Slow Database Queries
+
+**Problem**: Analysis scripts run very slowly.
+
+**Solutions**:
+
+1. **Check indexes exist**:
+   ```bash
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "\di"
+   # Should show multiple indexes
+   ```
+
+2. **Apply index migration if missing**:
+   ```bash
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -f /docker-entrypoint-initdb.d/002_add_indexes.sql
+   ```
+
+3. **Vacuum database** to optimize:
+   ```bash
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "VACUUM ANALYZE;"
+   ```
+
+4. **Check query plans** for slow queries:
+   ```sql
+   EXPLAIN ANALYZE SELECT mp.won, p.rank_tier FROM match_participants mp
+   JOIN players p ON mp.username = p.username
+   WHERE mp.hero_name = 'Spider-Man';
+   ```
+
+---
+
+### Out of Disk Space
+
+**Problem**: Database fills available disk space.
+
+**Symptoms**:
+```
+ERROR: could not extend file "base/16384/12345": No space left on device
+```
+
+**Solutions**:
+
+1. **Check disk usage**:
+   ```bash
+   df -h
+   docker system df
+   ```
+
+2. **Clean old data**:
+   ```bash
+   # Truncate large tables (CAUTION: deletes data)
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "TRUNCATE TABLE match_participants, matches CASCADE;"
+   ```
+
+3. **Increase Docker disk allocation**:
+   - Docker Desktop → Preferences → Resources → Disk image size
+
+4. **Move data directory** to larger volume:
+   - Update `docker-compose.yml` postgres volume mount
+   - Restart containers
+
+---
+
+## Synergy Analysis Issues (v2.0)
+
+### Why Did Synergy Scores Decrease After Updating?
+
+**Problem**: Synergy scores dropped from ±25-30% to ±3-7% after upgrading to v2.0.
+
+**Explanation**:
+
+This is **expected and correct**. Version 2.0 fixed a fundamental methodological flaw in the baseline model.
+
+**v1.0 (Old - Flawed)**:
+- Used multiplicative baseline: `expected_wr = hero_a_wr × hero_b_wr`
+- Produced unrealistic baselines (20-30% expected win rates)
+- Artificially inflated synergy scores to ±25-30%
+
+**v2.0 (New - Correct)**:
+- Uses average baseline: `expected_wr = (hero_a_wr + hero_b_wr) / 2`
+- Produces realistic baselines (50-60% expected win rates)
+- Reports honest synergy scores of ±3-7%
+
+**Example**: Hulk + Luna Snow
+- Old expected: 28.6% → Synergy: +31.3% ❌
+- New expected: 53.5% → Synergy: +6.4% ✅
+
+**Action**: None required. The new scores are correct. Old v1.0 results were mathematically unsound and should be discarded.
+
+**Reference**: See [MIGRATION_SYNERGY_V2.md](MIGRATION_SYNERGY_V2.md) for detailed explanation.
+
+---
+
+### What Does "Insufficient Sample Size" Warning Mean?
+
+**Problem**: Synergy analysis shows warnings like "Low confidence - only 87 games together".
+
+**Explanation**:
+
+Statistical power depends on sample size. With small samples, confidence intervals are wide and results are uncertain.
+
+**Confidence Levels**:
+- **High Confidence**: ≥500 games together (narrow CIs, reliable estimates)
+- **Medium Confidence**: 100-499 games (moderate CIs, cautious interpretation needed)
+- **Low Confidence**: <100 games (wide CIs, results unreliable - excluded by default)
+
+**Required Sample Sizes** (80% power to detect synergy):
+- **3% synergy**: 1,692 games required
+- **5% synergy**: 606 games required
+- **10% synergy**: 149 games required
+
+**Example**: With 200 games together, you can reliably detect ≥10% synergies but not realistic 3-5% synergies.
+
+**Solutions**:
+
+1. **Increase minimum sample size threshold**:
+   ```bash
+   docker compose exec app python scripts/analyze_synergies.py --min-sample-size 100
+   ```
+
+2. **Collect more data**:
+   - Run `discover_players.py` with higher target count
+   - Run `collect_matches.py` for more players
+   - Target 10,000+ total matches for reliable 3-5% synergy detection
+
+3. **Focus on high-confidence pairs**:
+   - Filter JSON results to only `confidence_level: "high"`
+   - Interpret medium/low confidence results with caution
+
+**Remember**: Small synergies (3-7%) require massive datasets. With typical data (100-300 games per pair), only large synergies (≥10%) are detectable.
+
+---
+
+### No Synergies Are Statistically Significant
+
+**Problem**: After upgrading to v2.0, all p-values > 0.05 and no synergies marked as significant.
+
+**Explanation**:
+
+This is **expected** with current sample sizes. v2.0 applies proper statistical testing that reveals the truth: with 100-300 games per pair, we lack power to detect realistic 3-7% synergies.
+
+**Why v1.0 Showed Everything as Significant**:
+- Flawed multiplicative baseline created artificially low expected win rates
+- Made every pair appear to have massive +30% synergies
+- All p-values < 0.001 (false positives due to wrong baseline)
+
+**Why v2.0 Shows Nothing as Significant**:
+- Correct average baseline produces realistic expected win rates
+- True synergies are only ±3-7% (not ±30%)
+- Current samples (100-300 games) insufficient to detect small effects
+- P-values > 0.05 (honest assessment of uncertainty)
+
+**Power Analysis**:
+- With 200 games: 80% power to detect ±10% synergies
+- With 200 games: 20% power to detect ±5% synergies (insufficient)
+- Need 600+ games to reliably detect ±5% synergies
+
+**Solutions**:
+
+1. **Accept the reality**: True synergies are small and require massive data
+
+2. **Use rankings, not significance**:
+   - Hulk + Star-Lord likely better than Hulk + Mantis
+   - Even if not statistically conclusive
+   - Directional guidance is still valuable
+
+3. **Collect 10× more data**:
+   ```bash
+   # Target 5,000 players instead of 500
+   docker compose exec app python scripts/discover_players.py --target-count 5000
+   ```
+
+4. **Lower significance threshold (more liberal)**:
+   ```bash
+   docker compose exec app python scripts/analyze_synergies.py --alpha 0.10
+   ```
+   ⚠️ Warning: Increases false positive rate
+
+5. **Focus on large effect sizes**:
+   - Look for synergies with magnitude ≥10%
+   - These are detectable with current data
+   - Realistic synergies (3-7%) require more data collection
+
+**Remember**: Honest uncertainty is better than false confidence. v2.0 tells the truth about what we can and cannot detect with current data.
+
+---
