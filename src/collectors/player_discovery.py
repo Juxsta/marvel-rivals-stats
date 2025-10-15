@@ -12,6 +12,8 @@ from typing import Dict, List, Optional, Tuple
 
 from psycopg2.extensions import connection as PgConnection
 
+from ..api.client import MarvelRivalsClient
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -42,7 +44,7 @@ TOP_HEROES_FOR_DIVERSITY = [
 ]
 
 
-def fetch_leaderboard_players(api_client, limit: int = 1000) -> List[Dict]:
+def fetch_leaderboard_players(api_client: MarvelRivalsClient, limit: int = 1000) -> List[Dict]:
     """Fetch player data from general leaderboard.
 
     Args:
@@ -66,7 +68,7 @@ def fetch_leaderboard_players(api_client, limit: int = 1000) -> List[Dict]:
 
 
 def fetch_hero_leaderboard_players(
-    api_client, hero_ids: List[int], limit_per_hero: int = 50
+    api_client: MarvelRivalsClient, hero_ids: List[int], limit_per_hero: int = 50
 ) -> List[Dict]:
     """Fetch players from hero-specific leaderboards for diversity.
 
@@ -268,7 +270,7 @@ def update_discovery_metadata(conn: PgConnection, total_discovered: int) -> None
 
 
 def discover_players(
-    api_client,
+    api_client: MarvelRivalsClient,
     db_conn: PgConnection,
     target_count: int = 500,
     quotas: Optional[Dict[str, int]] = None,

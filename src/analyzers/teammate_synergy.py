@@ -376,7 +376,7 @@ def analyze_teammate_synergies(
             continue
 
         # Track stats for each teammate
-        teammate_stats = defaultdict(lambda: {"games": 0, "wins": 0})
+        teammate_stats: Dict[str, Dict[str, int]] = defaultdict(lambda: {"games": 0, "wins": 0})
 
         # For each match, find teammates
         for match in hero_matches:

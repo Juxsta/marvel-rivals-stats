@@ -54,7 +54,7 @@ def group_matches_by_rank(matches: List[Dict]) -> Dict[str, Dict]:
     Returns:
         Dictionary mapping rank_tier to {'wins': int, 'losses': int}
     """
-    by_rank = defaultdict(lambda: {"wins": 0, "losses": 0})
+    by_rank: Dict[str, Dict[str, int]] = defaultdict(lambda: {"wins": 0, "losses": 0})
 
     for match in matches:
         rank = match["rank_tier"]
