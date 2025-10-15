@@ -37,9 +37,7 @@ def test_seed_script_creates_records():
             # Check match participants
             cur.execute("SELECT COUNT(*) FROM match_participants")
             participant_count = cur.fetchone()[0]
-            assert (
-                participant_count >= 15
-            ), "Should have at least 15 match participants"
+            assert participant_count >= 15, "Should have at least 15 match participants"
     finally:
         conn.close()
 
