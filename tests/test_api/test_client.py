@@ -1,6 +1,5 @@
 """Tests for MarvelRivalsClient initialization and structure."""
 
-import pytest
 from src.api import MarvelRivalsClient, RateLimiter
 
 

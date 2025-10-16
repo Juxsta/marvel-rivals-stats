@@ -1,0 +1,24 @@
+task_assignments:
+  - task_group: "Task Group 1: Statistical Utilities Enhancement"
+    assigned_subagent: "api-engineer"
+
+  - task_group: "Task Group 2: Database Schema Updates"
+    assigned_subagent: "database-engineer"
+
+  - task_group: "Task Group 3: Core Synergy Analysis Refactor"
+    assigned_subagent: "api-engineer"
+
+  - task_group: "Task Group 4: CLI Script Updates"
+    assigned_subagent: "api-engineer"
+
+  - task_group: "Task Group 5: JSON Export Format Updates"
+    assigned_subagent: "api-engineer"
+
+  - task_group: "Task Group 6: Unit Tests"
+    assigned_subagent: "testing-engineer"
+
+  - task_group: "Task Group 7: Integration Tests"
+    assigned_subagent: "testing-engineer"
+
+  - task_group: "Task Group 8: Documentation"
+    assigned_subagent: "unassigned"

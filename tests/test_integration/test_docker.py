@@ -5,8 +5,8 @@ and can communicate with each other.
 """
 
 import os
+
 import pytest
-import subprocess
 
 
 def test_postgres_reachable_from_app():
@@ -21,7 +21,14 @@ def test_postgres_reachable_from_app():
         # Execute a simple query to verify database is functional
         cur.execute("SELECT current_database()")
         db_name = cur.fetchone()[0]
-        assert db_name == os.getenv("DATABASE_NAME", "marvel_rivals")
+
+        # In CI, DATABASE_URL is used directly; in Docker, DATABASE_NAME is set
+        expected_db = (
+            "marvel_rivals_test"
+            if "marvel_rivals_test" in os.getenv("DATABASE_URL", "")
+            else os.getenv("DATABASE_NAME", "marvel_rivals")
+        )
+        assert db_name == expected_db, f"Expected {expected_db}, got {db_name}"
 
     conn.close()
 
@@ -37,10 +44,12 @@ def test_psql_commands_executable():
     try:
         with conn.cursor() as cur:
             # Test that we can list tables (equivalent to \dt in psql)
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = 'public'
-            """)
+            """
+            )
             table_count = cur.fetchone()[0]
             assert table_count >= 7, "Should have at least 7 tables in public schema"
 
@@ -53,8 +62,19 @@ def test_psql_commands_executable():
         conn.close()
 
 
+@pytest.mark.skipif(
+    "DATABASE_URL" in os.environ and "marvel_rivals_test" in os.environ.get("DATABASE_URL", ""),
+    reason=(
+        "Test requires Docker environment with individual DATABASE_* env vars "
+        "(not applicable in CI)"
+    ),
+)
 def test_environment_variables_loaded():
-    """Test that environment variables are loaded correctly in the container."""
+    """Test that environment variables are loaded correctly in the Docker container.
+
+    Note: This test is skipped in CI as it expects Docker-specific environment variables.
+    In CI, DATABASE_URL is used instead of individual DATABASE_* variables.
+    """
     # Verify critical database environment variables
     assert os.getenv("DATABASE_HOST") is not None, "DATABASE_HOST should be set"
     assert os.getenv("DATABASE_NAME") is not None, "DATABASE_NAME should be set"

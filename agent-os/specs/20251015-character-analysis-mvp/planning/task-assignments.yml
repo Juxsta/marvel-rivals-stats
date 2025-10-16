@@ -1,0 +1,32 @@
+task_assignments:
+  - task_group: "Task Group 1: Dependencies & Module Structure"
+    assigned_subagent: "unassigned"
+    rationale: "Infrastructure task - installing dependencies and creating directory structure"
+
+  - task_group: "Task Group 2: Player Discovery Implementation"
+    assigned_subagent: "api-engineer"
+    rationale: "API integration task - fetching leaderboard data, rate limiting, data collection"
+
+  - task_group: "Task Group 3: Match Collection Implementation"
+    assigned_subagent: "api-engineer"
+    rationale: "API integration task - fetching match history, rate limiting, data collection"
+
+  - task_group: "Task Group 4: Character Win Rate Implementation"
+    assigned_subagent: "database-engineer"
+    rationale: "Database task - complex SQL queries, statistical analysis, database caching"
+
+  - task_group: "Task Group 5: Teammate Synergy Implementation"
+    assigned_subagent: "database-engineer"
+    rationale: "Database task - complex SQL queries, statistical analysis, database caching"
+
+  - task_group: "Task Group 6: Utility Module Implementation"
+    assigned_subagent: "api-engineer"
+    rationale: "Mixed task - API helpers (6.1-6.2) by api-engineer, database helpers (6.3-6.4) by database-engineer; assigning to api-engineer for coordination"
+
+  - task_group: "Task Group 7: Integration Testing"
+    assigned_subagent: "testing-engineer"
+    rationale: "Testing task - integration tests and validation across all components"
+
+  - task_group: "Task Group 8: Documentation"
+    assigned_subagent: "unassigned"
+    rationale: "Documentation task - updating README, creating usage guides"

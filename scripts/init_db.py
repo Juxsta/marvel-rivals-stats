@@ -8,6 +8,7 @@ runs migrations if needed, and verifies all tables are created properly.
 import os
 import sys
 from pathlib import Path
+
 import psycopg2
 from dotenv import load_dotenv
 
@@ -31,7 +32,7 @@ def check_connection():
 def run_migration_file(conn, migration_path):
     """Execute a migration SQL file."""
     try:
-        with open(migration_path, 'r') as f:
+        with open(migration_path, "r") as f:
             sql = f.read()
 
         with conn.cursor() as cur:
@@ -64,23 +65,25 @@ def get_schema_version(conn):
 def verify_tables(conn):
     """Verify all expected tables exist."""
     expected_tables = [
-        'schema_migrations',
-        'players',
-        'matches',
-        'match_participants',
-        'character_stats',
-        'synergy_stats',
-        'collection_metadata'
+        "schema_migrations",
+        "players",
+        "matches",
+        "match_participants",
+        "character_stats",
+        "synergy_stats",
+        "collection_metadata",
     ]
 
     try:
         with conn.cursor() as cur:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT table_name
                 FROM information_schema.tables
                 WHERE table_schema = 'public'
                 ORDER BY table_name
-            """)
+            """
+            )
             existing_tables = [row[0] for row in cur.fetchall()]
 
         all_exist = all(table in existing_tables for table in expected_tables)
@@ -140,7 +143,7 @@ def main():
             for migration_file in migration_files:
                 # Extract version number from filename (e.g., 001_initial_schema.sql -> 1)
                 try:
-                    file_version = int(migration_file.stem.split('_')[0])
+                    file_version = int(migration_file.stem.split("_")[0])
                 except (ValueError, IndexError):
                     print(f"⚠ Skipping migration with invalid filename: {migration_file.name}")
                     continue

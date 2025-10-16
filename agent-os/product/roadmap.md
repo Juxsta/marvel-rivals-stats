@@ -24,81 +24,92 @@ Establish project structure, database schema, and API integration foundation.
 - [x] Documentation (README, PLAN.md, PRODUCT.md)
 - [x] Specification documents (SPEC-001, SPEC-002, SPEC-003)
 - [x] Product planning (mission.md, roadmap.md, tech-stack.md)
+- [x] Docker Compose setup with PostgreSQL and Python containers (SPEC-004)
+- [x] Database migrations and initialization scripts
+- [x] Integration testing suite (16 tests passing)
+- [x] GitHub repository created and pushed
 
 ### Deliverables
 - Working API client with rate limit handling
 - PostgreSQL database schema ready for deployment
 - Development standards in `agent-os/standards/`
 - Complete product documentation in `agent-os/product/`
+- Production-ready Docker infrastructure
+- Comprehensive documentation (development.md, deployment.md, troubleshooting.md)
 
 ---
 
 ## Phase 1: MVP - Character Analysis
 
-**Timeline**: Week 2-3 (Oct 16-30, 2025)
-**Status**: 🚧 In Progress
+**Timeline**: Week 2-4 (Oct 16 - Nov 5, 2025)
+**Status**: 📋 Ready to Start
 **Priority**: P0 (Critical)
+**Specification**: **SPEC-005** (consolidates SPEC-001, SPEC-002, SPEC-003)
 
 ### Goals
-Prove the concept by collecting data for 500 players and analyzing character win rates.
+Prove the concept by implementing an end-to-end data pipeline: discover players → collect matches → analyze character win rates → identify teammate synergies.
 
 ### Features
 
-#### 1.1 Player Discovery
-**SPEC**: SPEC-001
-**Dependencies**: API client, database schema
+#### 1.1 End-to-End Data Pipeline
+**SPEC**: SPEC-005 Character Analysis MVP
+**Dependencies**: SPEC-004 (Docker, database, API client) - ✅ Complete
+**Tasks**: 53 subtasks across 8 task groups (40-54 hours)
+**Documentation**: `/home/ericreyes/github/marvel-rivals-stats/agent-os/specs/20251015-character-analysis-mvp/`
 
-- [ ] Implement player discovery module (`src/collectors/player_discovery.py`)
-- [ ] Create discovery CLI script (`scripts/discover_players.py`)
-- [ ] Support stratified sampling by rank tier
-- [ ] Implement quota-based collection
-- [ ] Add progress tracking and resume capability
+**Implementation Phases**:
 
-**Acceptance Criteria**:
-- Discover 500+ players across all rank tiers
-- At least 5 players per rank tier
-- No duplicates in database
-- Process respects API rate limits
+1. **Player Discovery** (Task Group 2: 6-8 hours)
+   - Stratified sampling across 8 rank tiers (500 players total)
+   - Leaderboard API integration with rate limiting
+   - Player deduplication and database insertion
+   - Progress tracking and resumable collection
+   - CLI script: `scripts/discover_players.py`
 
-#### 1.2 Match History Collection
-**SPEC**: SPEC-002
-**Dependencies**: Player discovery completed
+2. **Match Collection** (Task Group 3: 8-10 hours)
+   - Fetch 100-150 matches per player (50,000+ total matches)
+   - Match deduplication by match_id
+   - Extract 12 participants per match with performance stats
+   - Rate limiter integration (7 req/min, 8.6s delays)
+   - Resumable collection with progress reporting
+   - CLI script: `scripts/collect_matches.py`
 
-- [ ] Implement match collector module (`src/collectors/match_collector.py`)
-- [ ] Create collection CLI script (`scripts/collect_matches.py`)
-- [ ] Handle match deduplication
-- [ ] Extract participant data (hero, role, stats, outcome)
-- [ ] Implement rate limiting and error handling
-- [ ] Add batch processing with resume capability
+3. **Character Win Rate Analysis** (Task Group 4: 6-8 hours)
+   - Calculate win rates for all 40+ heroes
+   - Rank stratification (Bronze → Celestial)
+   - Wilson confidence intervals (95% confidence)
+   - Minimum sample filtering (30 games per rank, 100 overall)
+   - Database caching in character_stats table
+   - JSON export with confidence intervals
+   - CLI script: `scripts/analyze_character.py`
 
-**Acceptance Criteria**:
-- Collect 50,000+ unique matches
-- 80%+ of discovered players have matches collected
-- All matches have 12 participants (6v6)
-- Deduplication works correctly
-
-#### 1.3 Character Win Rate Analysis
-**SPEC**: SPEC-003
-**Dependencies**: Match collection completed
-
-- [ ] Implement character analysis module (`src/analyzers/character_winrate.py`)
-- [ ] Add Wilson confidence interval calculation
-- [ ] Create analysis CLI script (`scripts/analyze_character.py`)
-- [ ] Implement rank stratification
-- [ ] Add minimum sample size filtering (30 games)
-- [ ] Export results to JSON
+4. **Teammate Synergy Analysis** (Task Group 5: 8-10 hours) **[NEW]**
+   - Calculate actual vs expected win rates for hero pairs
+   - Synergy score: `actual_win_rate - expected_win_rate`
+   - Identify top 10 teammates for each hero
+   - Minimum 50 games together threshold
+   - Database caching in synergy_stats table
+   - JSON export with synergy rankings
+   - CLI script: `scripts/analyze_synergy.py`
 
 **Acceptance Criteria**:
-- All heroes with 100+ games analyzed
-- Win rates calculated for all rank tiers with 30+ games
-- 95% confidence intervals included
-- Results exported to JSON format
+- ✅ 400+ players discovered (80% of target, stratified by rank)
+- ✅ 50,000+ unique matches collected and deduplicated
+- ✅ API rate limits respected (no 429 errors)
+- ✅ 35+ heroes analyzed with win rates per rank tier
+- ✅ Top 10 synergies identified for 30+ heroes
+- ✅ All results include 95% confidence intervals
+- ✅ Pipeline is resumable (no data loss on interruption)
+- ✅ 20-28 tests passing (unit + integration)
+- ✅ Results exported to JSON format
 
 ### Deliverables
-- 3 working CLI scripts (discover, collect, analyze)
-- JSON exports with character win rates
-- Cached results in database
-- Updated documentation with usage examples
+- **4 working CLI scripts** (discover, collect, analyze character, analyze synergy)
+- **JSON exports** with character win rates and synergy data
+- **Cached results** in database (character_stats, synergy_stats tables)
+- **Test suite** (20-28 tests covering critical paths)
+- **Updated documentation** with usage examples and statistical methodology
+- **Verification report** confirming all acceptance criteria met
 
 ---
 
@@ -125,7 +136,7 @@ Expand sample size, improve data quality, and add testing infrastructure.
 - [ ] Type checking with mypy
 - [ ] Code formatting with black
 - [ ] Linting with ruff
-- [ ] CI/CD pipeline (GitHub Actions)
+- [x] CI/CD pipeline (GitHub Actions)
 
 #### 2.3 Enhanced Statistics
 - [ ] Add percentile rankings (hero vs. hero comparisons)
@@ -155,14 +166,14 @@ Expand sample size, improve data quality, and add testing infrastructure.
 
 ---
 
-## Phase 3: Web Frontend & Synergy Analysis
+## Phase 3: Web Frontend & Enhanced Visualizations
 
 **Timeline**: Week 6-8 (Nov 16 - Dec 7, 2025)
 **Status**: 📋 Planned
 **Priority**: P1 (High)
 
 ### Goals
-Build user-facing web interface and analyze team compositions to identify hero synergies.
+Build user-facing web interface to visualize character statistics and synergy data from Phase 1.
 
 ### Features
 
@@ -175,35 +186,35 @@ Build user-facing web interface and analyze team compositions to identify hero s
 - [ ] Deploy frontend container to Odin
 - [ ] Integrate with Caddy reverse proxy
 
-#### 3.2 Pair-wise Synergy Analysis
-**SPEC**: TBD (SPEC-004)
+#### 3.2 Synergy Visualizations
+**Data Source**: Phase 1 synergy_stats table (from SPEC-005)
 
-- [ ] Create synergy analyzer module (`src/analyzers/team_synergy.py`)
-- [ ] Calculate expected vs. actual win rates for hero pairs
-- [ ] Implement synergy score calculation
-- [ ] Add statistical significance testing
-- [ ] Filter for minimum sample size (50 games together)
-- [ ] Add synergy API endpoints to FastAPI backend
+- [ ] Build interactive synergy matrix UI
+- [ ] Display top synergies per hero with confidence intervals
+- [ ] Add filtering by rank tier
+- [ ] Create synergy heatmap visualization
+- [ ] Add API endpoints to FastAPI backend for synergy data
 
-#### 3.3 Role-based Analysis
-- [ ] Best tanks for each support
-- [ ] Best DPS for each tank
-- [ ] Optimal role distribution analysis (2-2-2 vs alternatives)
-- [ ] Visualize synergies in web UI
+#### 3.3 Enhanced Statistics Pages
+- [ ] Win rate trend charts (by rank)
+- [ ] Confidence interval visualizations
+- [ ] Role-based filtering and comparisons
+- [ ] Sample size indicators
+- [ ] Statistical significance badges
 
-#### 3.4 Synergy CLI & Export
-- [ ] Create synergy analysis script (`scripts/analyze_synergy.py`)
-- [ ] Export synergy matrix to JSON
-- [ ] Generate top synergy recommendations per hero
-- [ ] Cache results in database
+#### 3.4 Role-based Insights
+- [ ] Best Vanguards for each Strategist
+- [ ] Best Duelists for each Vanguard
+- [ ] Optimal role distribution insights (if data supports)
+- [ ] Cross-role synergy recommendations
 
 ### Deliverables
 - **Public web interface at rivals.jinocenc.io**
-- Synergy analysis module
-- CLI script for synergy analysis
-- JSON exports with synergy data
-- Interactive synergy visualizations
-- Documentation for synergy methodology
+- Interactive hero statistics pages
+- Synergy matrix and top recommendations UI
+- API endpoints serving Phase 1 cached data
+- Responsive design for mobile/desktop
+- Documentation for web interface usage
 
 ---
 
@@ -362,26 +373,29 @@ Phase 1 (MVP - CLI)
 
 ## Success Criteria by Phase
 
-### Phase 1 (MVP)
-- ✅ Collect 50,000+ matches from 500+ players
-- ✅ Calculate win rates for 30+ heroes
-- ✅ Export JSON with confidence intervals
+### Phase 1 (MVP - SPEC-005)
+- ✅ Collect 50,000+ matches from 400+ players (stratified by rank)
+- ✅ Calculate win rates for 35+ heroes with confidence intervals
+- ✅ Identify top 10 synergies per hero (NEW)
+- ✅ Export JSON with statistical rigor (confidence intervals, sample sizes)
+- ✅ Pipeline is resumable and respects API rate limits
+- ✅ 20-28 tests passing (minimal testing philosophy)
 - ✅ Results correlate with community tier lists (±5%)
 
 ### Phase 2 (Polish + Web API)
-- ✅ 80%+ test coverage
+- ✅ Enhanced test coverage (strategic integration tests)
 - ✅ All heroes with 100+ games analyzed
 - ✅ Multiple export formats available
 - ✅ CI/CD pipeline passing
 - ✅ **Web API deployed to rivals.jinocenc.io**
 - ✅ PostgreSQL database operational on Odin
 
-### Phase 3 (Frontend + Synergies)
-- ✅ Identify top 10 synergies per hero
-- ✅ Statistical significance p < 0.05
-- ✅ Results reveal insights not in community knowledge
-- ✅ **Public web interface accessible**
-- ✅ Hero pages with interactive charts
+### Phase 3 (Frontend + Visualizations)
+- ✅ **Public web interface accessible at rivals.jinocenc.io**
+- ✅ Hero pages with interactive charts and confidence intervals
+- ✅ Synergy matrix visualization (using Phase 1 data)
+- ✅ Role-based filtering and comparisons
+- ✅ Mobile-responsive design
 
 ### Phase 4 (Advanced + Infrastructure)
 - ✅ Track meta across 3+ patches

@@ -1,0 +1,164 @@
+name: CI
+
+# Trigger this workflow on push to main and pull requests targeting main
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Job 1: Code Quality Checks (linting)
+  lint:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # Cache pip dependencies to speed up subsequent runs
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-lint-${{ hashFiles('requirements-dev.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-lint-
+
+      - name: Install linting tools
+        run: |
+          pip install black==24.10.0 ruff==0.7.4 mypy==1.13.0
+          pip install types-psycopg2 types-requests
+
+      # Check code formatting (black)
+      - name: Run black format check
+        run: black --check src/ scripts/ tests/
+
+      # Check linting rules (ruff)
+      - name: Run ruff linter
+        run: ruff check src/ scripts/ tests/
+
+      # Check type hints (mypy)
+      - name: Run mypy type checker
+        run: mypy src/
+
+  # Job 2: Unit tests (non-integration tests)
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # Cache pip dependencies to speed up subsequent runs
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      # Run only unit tests (exclude integration tests for speed)
+      - name: Run unit tests
+        run: |
+          # Set PYTHONPATH to include project root
+          export PYTHONPATH="${GITHUB_WORKSPACE}:${PYTHONPATH}"
+          # Run all tests except integration tests
+          pytest tests/ -v --ignore=tests/test_integration/
+
+  # Job 3: Integration tests with PostgreSQL service container
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    # PostgreSQL service container for integration tests
+    # This runs as a sidecar container during the entire job
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: marvel_rivals_test
+          POSTGRES_USER: marvel_stats
+          POSTGRES_PASSWORD: test_password
+        # Health check ensures PostgreSQL is ready before tests run
+        # Retries every 10s for up to 50s total
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          # Expose PostgreSQL on standard port
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      # Cache pip dependencies to speed up subsequent runs
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt', 'requirements-dev.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      # Install PostgreSQL client tools for running migrations
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      # Run database migrations in correct order
+      # Each migration file must be applied sequentially
+      - name: Run database migrations
+        env:
+          # Use PGPASSWORD for non-interactive authentication
+          PGPASSWORD: test_password
+        run: |
+          # Run migrations in alphabetical order (ensures consistent execution)
+          for migration in $(ls migrations/*.sql | sort); do
+            echo "Running migration: $migration"
+            psql -h localhost -U marvel_stats -d marvel_rivals_test -f "$migration"
+          done
+
+      # Run integration tests with database connection
+      # These tests require a live PostgreSQL database
+      - name: Run integration tests
+        env:
+          # Database connection string for tests
+          DATABASE_URL: postgresql://marvel_stats:test_password@localhost:5432/marvel_rivals_test
+          # Mock API key for testing (not a real key)
+          MARVEL_RIVALS_API_KEY: mock_key_for_testing
+          # Set PYTHONPATH to include project root for imports
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          # Run only integration tests
+          pytest tests/test_integration/ -v

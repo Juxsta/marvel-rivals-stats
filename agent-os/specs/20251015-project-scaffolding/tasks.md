@@ -1,7 +1,7 @@
 # Tasks: Project Scaffolding & Docker Setup
 
 **Spec**: SPEC-004
-**Status**: Not Started
+**Status**: Complete
 **Estimated Total Time**: 8-12 hours
 
 ---
@@ -41,7 +41,7 @@ Based `/home/ericreyes/github/marvel-rivals-stats/agent-os/roles/implementers.ym
 **Dependencies:** None
 **Estimated Time:** 30 minutes
 
-- [ ] **1.1**: Create `.gitignore` file
+- [x] **1.1**: Create `.gitignore` file
   - **Description**: Create comprehensive Python/Docker `.gitignore`
   - **Files to create**: `/home/ericreyes/github/marvel-rivals-stats/.gitignore`
   - **Contents should include**:
@@ -54,7 +54,7 @@ Based `/home/ericreyes/github/marvel-rivals-stats/agent-os/roles/implementers.ym
   - **Verification**: `git status` should not show ignored files after creation
   - **Estimated time**: 5 minutes
 
-- [ ] **1.2**: Update README.md with quick start
+- [x] **1.2**: Update README.md with quick start
   - **Description**: Add Docker setup instructions and project overview
   - **Files to modify**: `/home/ericreyes/github/marvel-rivals-stats/README.md`
   - **Should include**:
@@ -66,7 +66,7 @@ Based `/home/ericreyes/github/marvel-rivals-stats/agent-os/roles/implementers.ym
   - **Verification**: Follow README instructions on fresh clone
   - **Estimated time**: 20 minutes
 
-- [ ] **1.3**: Initialize Git repository and push to GitHub
+- [x] **1.3**: Initialize Git repository and push to GitHub
   - **Description**: Initialize git, create GitHub repo using `gh` CLI
   - **Commands to run**:
     ```bash
@@ -240,8 +240,8 @@ Based `/home/ericreyes/github/marvel-rivals-stats/agent-os/roles/implementers.ym
 **Dependencies:** Task Group 3
 **Estimated Time:** 2 hours
 
-- [ ] **4.0**: Complete database layer setup
-  - [ ] **4.1**: Write 2-4 focused tests for database connection
+- [x] **4.0**: Complete database layer setup
+  - [x] **4.1**: Write 2-4 focused tests for database connection
     - **Description**: Create basic smoke tests for PostgreSQL connectivity
     - **Files to create**: `/home/ericreyes/github/marvel-rivals-stats/tests/test_db/test_connection.py`
     - **Tests should cover**:
@@ -253,7 +253,7 @@ Based `/home/ericreyes/github/marvel-rivals-stats/agent-os/roles/implementers.ym
     - **Reference**: See spec.md lines 1106-1139 for example tests
     - **Estimated time**: 20 minutes
 
-  - [ ] **4.2**: Create initial schema migration
+  - [x] **4.2**: Create initial schema migration
     - **Description**: Create SQL migration with all core tables
     - **Files to create**: `/home/ericreyes/github/marvel-rivals-stats/migrations/001_initial_schema.sql`
     - **Reference**: See spec.md lines 317-425 for complete schema
@@ -269,7 +269,7 @@ Based `/home/ericreyes/github/marvel-rivals-stats/agent-os/roles/implementers.ym
     - **Verification**: SQL syntax is valid
     - **Estimated time**: 30 minutes
 
-  - [ ] **4.3**: Create indexes migration
+  - [x] **4.3**: Create indexes migration
     - **Description**: Create performance indexes for queries
     - **Files to create**: `/home/ericreyes/github/marvel-rivals-stats/migrations/002_add_indexes.sql`
     - **Reference**: See spec.md lines 427-483 for complete indexes
@@ -281,7 +281,7 @@ Based `/home/ericreyes/github/marvel-rivals-stats/agent-os/roles/implementers.ym
     - **Verification**: SQL syntax is valid
     - **Estimated time**: 20 minutes
 
-  - [ ] **4.4**: Create database connection module
+  - [x] **4.4**: Create database connection module
     - **Description**: Implement PostgreSQL connection pooling
     - **Files to create**: `/home/ericreyes/github/marvel-rivals-stats/src/db/connection.py`
     - **Must implement**:
@@ -294,7 +294,7 @@ Based `/home/ericreyes/github/marvel-rivals-stats/agent-os/roles/implementers.ym
     - **Verification**: Can import module without errors
     - **Estimated time**: 30 minutes
 
-  - [ ] **4.5**: Run database migrations and verify
+  - [x] **4.5**: Run database migrations and verify
     - **Description**: Apply migrations and verify schema
     - **Commands to run**:
       ```bash
@@ -797,21 +797,21 @@ Phase 10: Odin Server Deployment (Optional)
 ## Testing Checkpoints
 
 ### After Phase 3 (Docker Configuration)
-- [ ] `docker compose up -d` starts both services
-- [ ] `docker compose ps` shows both services "Up"
-- [ ] PostgreSQL health check passes
-- [ ] Can execute: `docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT 1;"`
+- [x] `docker compose up -d` starts both services
+- [x] `docker compose ps` shows both services "Up"
+- [x] PostgreSQL health check passes
+- [x] Can execute: `docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT 1;"`
 
 ### After Phase 4 (Database Setup)
-- [ ] All 7 tables exist: `\dt` in psql
-- [ ] All indexes created: `\di` in psql
-- [ ] Schema version is 2
-- [ ] Database connection tests pass (2-4 tests)
+- [x] All 7 tables exist: `\dt` in psql
+- [x] All indexes created: `\di` in psql
+- [x] Schema version is 2
+- [x] Database connection tests pass (2-4 tests)
 
 ### After Phase 5 (Database Scripts)
-- [ ] `scripts/init_db.py` runs without errors
-- [ ] `scripts/seed_sample_data.py` inserts test data
-- [ ] Can query sample data: `SELECT COUNT(*) FROM players;`
+- [x] `scripts/init_db.py` runs without errors
+- [x] `scripts/seed_sample_data.py` inserts test data
+- [x] Can query sample data: `SELECT COUNT(*) FROM players;`
 
 ### After Phase 6 (API Client)
 - [x] `scripts/test_api.py` runs without errors
@@ -824,9 +824,9 @@ Phase 10: Odin Server Deployment (Optional)
 - [x] No critical issues found
 
 ### After Phase 9 (GitHub Push)
-- [ ] Repository visible on GitHub
-- [ ] README renders correctly
-- [ ] All files committed (except .env, data/)
+- [x] Repository visible on GitHub
+- [x] README renders correctly
+- [x] All files committed (except .env, data/)
 
 ### After Phase 10 (Odin Deployment) - Optional
 - [ ] Services running on Odin

@@ -1,0 +1,27 @@
+task_assignments:
+  - task_group: "Task Group 1: Fix Numpy Serialization Issues"
+    assigned_subagent: "testing-engineer"
+
+  - task_group: "Task Group 2: Fix Fixture Isolation Issues"
+    assigned_subagent: "testing-engineer"
+
+  - task_group: "Task Group 3: Fix Seed Data Issues"
+    assigned_subagent: "testing-engineer"
+
+  - task_group: "Task Group 4: Fix Assertion Mismatch"
+    assigned_subagent: "testing-engineer"
+
+  - task_group: "Task Group 5: Create GitHub Actions Workflow"
+    assigned_subagent: "testing-engineer"
+
+  - task_group: "Task Group 6: Test CI Pipeline Locally"
+    assigned_subagent: "testing-engineer"
+
+  - task_group: "Task Group 7: Deploy and Verify CI Pipeline"
+    assigned_subagent: "testing-engineer"
+
+  - task_group: "Task Group 8: Update Documentation"
+    assigned_subagent: "testing-engineer"
+
+  - task_group: "Task Group 9: Test Audit and Cleanup (OPTIONAL)"
+    assigned_subagent: "testing-engineer"

@@ -1,4 +1,4 @@
-"""Marvel Rivals Stats Analyzer
+"""Marvel Rivals Stats Analyzer.
 
 A data collection and analysis tool for Marvel Rivals competitive statistics.
 """

@@ -2,7 +2,6 @@
 
 import threading
 import time
-from typing import Optional
 
 
 class RateLimiter:

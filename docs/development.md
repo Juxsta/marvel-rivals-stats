@@ -232,21 +232,148 @@ docker compose up -d --build app
 docker compose build --no-cache app
 ```
 
-### Working with Migrations
+### Database Migrations
+
+#### Migration File Naming Convention
+
+**CRITICAL**: Migration files MUST follow this naming pattern:
+```
+NNN_descriptive_name.sql
+```
+
+Where:
+- `NNN` is a zero-padded three-digit number (001, 002, 003, etc.)
+- `descriptive_name` describes what the migration does
+- Files are applied in **alphabetical order** (which equals numerical order with this convention)
+
+Examples:
+- ✅ `001_initial_schema.sql`
+- ✅ `002_add_synergy_stats.sql`
+- ✅ `010_add_indexes.sql`
+- ❌ `1_initial.sql` (not zero-padded)
+- ❌ `add_users.sql` (no number prefix)
+
+#### Why Alphabetical Ordering Matters
+
+The CI pipeline applies migrations using:
+```bash
+for migration in $(ls migrations/*.sql | sort); do
+  psql -f "$migration"
+done
+```
+
+This means:
+- Migrations are applied in **alphabetical order**
+- No database tracking table is used in CI
+- Incorrect ordering will cause schema inconsistencies
+- Always use zero-padded numbers to ensure correct sort order
+
+#### Creating a New Migration
+
+1. **Determine the next number**:
+   ```bash
+   ls migrations/ | sort | tail -1
+   # If last is 002_add_synergy_stats.sql, use 003
+   ```
+
+2. **Create the migration file**:
+   ```bash
+   nano migrations/003_add_user_profiles.sql
+   ```
+
+3. **Write idempotent SQL** (safe to run multiple times):
+   ```sql
+   -- Good: Uses IF NOT EXISTS
+   CREATE TABLE IF NOT EXISTS user_profiles (
+       id SERIAL PRIMARY KEY,
+       username VARCHAR(255) NOT NULL
+   );
+
+   -- Good: Checks existence before adding column
+   DO $$
+   BEGIN
+       IF NOT EXISTS (
+           SELECT 1 FROM information_schema.columns
+           WHERE table_name='users' AND column_name='email'
+       ) THEN
+           ALTER TABLE users ADD COLUMN email VARCHAR(255);
+       END IF;
+   END $$;
+   ```
+
+4. **Test locally**:
+   ```bash
+   # Apply migration
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals \
+       -f /docker-entrypoint-initdb.d/003_add_user_profiles.sql
+
+   # Verify schema
+   docker compose exec postgres psql -U marvel_stats -d marvel_rivals \
+       -c "\d user_profiles"
+   ```
+
+5. **Commit the migration**:
+   ```bash
+   git add migrations/003_add_user_profiles.sql
+   git commit -m "Add user profiles migration"
+   ```
+
+#### Best Practices for Migrations
+
+1. **Never modify existing migrations** after they've been merged
+   - Create a new migration to fix issues instead
+   - Existing migrations may have already run in production
+
+2. **Make migrations idempotent**
+   - Use `IF NOT EXISTS` for CREATE statements
+   - Use `IF EXISTS` for DROP statements
+   - Check for existence before ALTER TABLE operations
+
+3. **Test rollback scenarios**
+   - Ensure you can recover if migration fails
+   - Consider creating a separate rollback script for complex changes
+
+4. **Keep migrations focused**
+   - One logical change per migration file
+   - Easier to debug and rollback if needed
+
+5. **Document breaking changes**
+   - Add SQL comments explaining why the change is necessary
+   - Note any required data migrations or cleanup
+
+#### Applying Migrations Manually
 
 ```bash
-# Create new migration file
-nano migrations/003_new_feature.sql
+# Apply specific migration
+docker compose exec postgres psql -U marvel_stats -d marvel_rivals \
+    -f /docker-entrypoint-initdb.d/003_new_feature.sql
 
-# Apply migration manually
-docker compose exec app python scripts/run_migration.py migrations/003_new_feature.sql
+# Apply all pending migrations in order
+for migration in migrations/*.sql; do
+    echo "Applying: $migration"
+    docker compose exec postgres psql -U marvel_stats -d marvel_rivals \
+        -f /docker-entrypoint-initdb.d/$(basename $migration)
+done
 
-# Or apply via psql
-docker compose exec postgres psql -U marvel_stats -d marvel_rivals -f /docker-entrypoint-initdb.d/003_new_feature.sql
-
-# Check schema version
-docker compose exec postgres psql -U marvel_stats -d marvel_rivals -c "SELECT * FROM schema_migrations;"
+# Check schema version (if using schema_migrations table)
+docker compose exec postgres psql -U marvel_stats -d marvel_rivals \
+    -c "SELECT * FROM schema_migrations ORDER BY version;"
 ```
+
+#### Troubleshooting Migrations
+
+**Migration fails in CI but works locally**:
+- Check if migration is idempotent (safe to run multiple times)
+- Verify dependencies on previous migrations
+- Ensure no hard-coded data that may differ between environments
+
+**Migration order is wrong**:
+- Rename files to use correct zero-padded numbers
+- Run `ls migrations/ | sort` to verify alphabetical order matches intended order
+
+**Need to rollback a migration**:
+- Create a new migration that reverses the changes
+- Don't modify or delete the original migration file
 
 ### Seeding Test Data
 
@@ -391,6 +518,169 @@ alias dcdb='docker compose exec postgres psql -U marvel_stats -d marvel_rivals'
 # dcapp python scripts/test_api.py
 # dcdb -c "SELECT COUNT(*) FROM players;"
 ```
+
+## Running the Data Collection Pipeline
+
+### Complete Pipeline (All Steps)
+
+```bash
+# Step 1: Discover players (stratified sampling)
+docker compose exec app python scripts/discover_players.py --target-count 500
+
+# Step 2: Collect match histories (rate limited, ~70 minutes for 100 players)
+docker compose exec app python scripts/collect_matches.py --batch-size 100
+
+# Step 3: Analyze character win rates
+docker compose exec app python scripts/analyze_characters.py
+
+# Step 4: Analyze teammate synergies
+docker compose exec app python scripts/analyze_synergies.py
+```
+
+### Development/Testing with Small Datasets
+
+```bash
+# Discover just 50 players for testing
+docker compose exec app python scripts/discover_players.py --target-count 50
+
+# Collect matches for 10 players only
+docker compose exec app python scripts/collect_matches.py --batch-size 10
+
+# Analyze with lower thresholds
+docker compose exec app python scripts/analyze_characters.py --min-games-overall 20
+docker compose exec app python scripts/analyze_synergies.py --min-games 10
+```
+
+### Dry Run Mode (Preview Without Changes)
+
+All scripts support `--dry-run` to preview without database changes:
+
+```bash
+docker compose exec app python scripts/discover_players.py --dry-run
+docker compose exec app python scripts/collect_matches.py --dry-run --batch-size 5
+```
+
+### Resuming Interrupted Collection
+
+Match collection is resumable - it tracks which players have been processed:
+
+```bash
+# Start collection
+docker compose exec app python scripts/collect_matches.py --batch-size 100
+
+# Press Ctrl+C to stop (partial progress is saved)
+
+# Resume later - picks up where it left off
+docker compose exec app python scripts/collect_matches.py --batch-size 100
+```
+
+### Inspecting Output
+
+```bash
+# View JSON exports
+cat output/character_win_rates.json | jq '."Spider-Man"'
+cat output/synergies.json | jq '."Spider-Man".synergies[0:3]'
+
+# Query database directly
+dcdb -c "SELECT hero_name, win_rate, total_games FROM character_stats WHERE rank_tier IS NULL ORDER BY win_rate DESC LIMIT 10;"
+dcdb -c "SELECT COUNT(*) FROM matches;"
+dcdb -c "SELECT COUNT(*) FROM match_participants;"
+```
+
+### Common Development Workflows
+
+**Add new hero analysis**:
+1. Ensure matches collected: `dcdb -c "SELECT COUNT(*) FROM matches;"`
+2. Run character analysis: `docker compose exec app python scripts/analyze_characters.py`
+3. Check output: `cat output/character_win_rates.json | jq keys`
+
+**Update synergy calculations**:
+1. Modify `src/analyzers/teammate_synergy.py`
+2. Run tests: `docker compose exec app pytest tests/test_analyzers/test_teammate_synergy.py -v`
+3. Re-run analysis: `docker compose exec app python scripts/analyze_synergies.py`
+
+**Debug data collection issues**:
+1. Check logs: `docker compose logs -f app`
+2. Inspect database: `dcdb -c "SELECT * FROM collection_metadata;"`
+3. View API rate limit status: Check logs for "Rate limit" warnings
+
+## Continuous Integration Pipeline
+
+### Overview
+
+The project uses GitHub Actions for automated testing on every push and pull request.
+
+### Workflow Structure
+
+The CI workflow (`.github/workflows/ci.yml`) consists of three parallel jobs:
+
+1. **lint**: Code quality checks
+   - black --check (code formatting)
+   - ruff check (linting)
+   - mypy (type checking)
+
+2. **unit-tests**: Business logic tests
+   - Runs ~42 unit tests
+   - Tests: statistics, analyzers, collectors, utilities
+   - Fast execution (~30 seconds)
+
+3. **integration-tests**: End-to-end tests
+   - Runs ~17 integration tests
+   - Uses PostgreSQL service container
+   - Runs database migrations automatically
+   - Tests: pipeline, workflow, synergy analysis
+   - Execution time: ~2 minutes
+
+### Service Containers
+
+Integration tests use a PostgreSQL 16 service container:
+- Database: `marvel_rivals_test`
+- User: `marvel_stats`
+- Password: `test_password`
+- Health checks ensure database is ready before tests run
+- Migrations run automatically before tests
+
+### Local Testing
+
+To test locally before pushing:
+
+```bash
+# Run all checks that CI will run
+docker compose exec app black --check src/ scripts/ tests/
+docker compose exec app ruff check src/ scripts/ tests/
+docker compose exec app mypy src/ scripts/
+docker compose exec app pytest tests/ -v
+```
+
+### Debugging CI Failures
+
+1. **View logs**: Go to GitHub Actions tab → Click failing workflow → Click failing job
+2. **Reproduce locally**: Use the same commands that CI runs
+3. **Test locally with act** (optional):
+   ```bash
+   # Install act tool
+   brew install act  # macOS
+
+   # Test workflow locally
+   act push
+   ```
+
+### Execution Time
+
+Target: Under 5 minutes total
+- Lint job: ~30 seconds
+- Unit tests job: ~30 seconds
+- Integration tests job: ~2 minutes
+- Total (parallel): ~2-3 minutes
+
+### Status Checks
+
+All PRs show status checks:
+- Green checkmark: All checks passed
+- Red X: One or more checks failed
+- Yellow dot: Checks in progress
+
+PRs cannot be merged until all checks pass.
 
 ## Next Steps
 

@@ -1,3 +1,1 @@
-"""Data collection modules."""
-
-# Will be populated in Phase 1
+"""Data collection modules for player discovery and match history."""

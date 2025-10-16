@@ -4,13 +4,14 @@ This module provides connection pooling and connection management utilities
 for interacting with the PostgreSQL database.
 """
 
-import os
 import logging
+import os
 from typing import Optional
+
 import psycopg2
+from dotenv import load_dotenv
 from psycopg2 import pool
 from psycopg2.extensions import connection as PgConnection
-from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
@@ -39,9 +40,7 @@ def get_connection_pool() -> pool.SimpleConnectionPool:
             if database_url:
                 # Use DATABASE_URL if available (complete connection string)
                 _connection_pool = pool.SimpleConnectionPool(
-                    minconn=1,
-                    maxconn=10,
-                    dsn=database_url
+                    minconn=1, maxconn=10, dsn=database_url
                 )
                 logger.info("Database connection pool created using DATABASE_URL")
             else:
@@ -53,7 +52,7 @@ def get_connection_pool() -> pool.SimpleConnectionPool:
                     port=os.getenv("DATABASE_PORT", "5432"),
                     database=os.getenv("DATABASE_NAME", "marvel_rivals"),
                     user=os.getenv("DATABASE_USER", "marvel_stats"),
-                    password=os.getenv("DATABASE_PASSWORD")
+                    password=os.getenv("DATABASE_PASSWORD"),
                 )
                 logger.info("Database connection pool created using individual parameters")
         except psycopg2.Error as e:
